@@ -1799,6 +1799,9 @@ def multijob(registry, xml_parent, data):
     :arg str condition: when to trigger the other job.
         Can be: 'SUCCESSFUL', 'UNSTABLE', 'COMPLETED', 'FAILURE', 'ALWAYS'.
         (default 'SUCCESSFUL')
+    :arg str execution-type: The type of running phase jobs
+        Can be: 'SEQUENTIALLY', 'PARALLEL'.
+        (default 'PARALLEL')
 
     :arg list projects: list of projects to include in the MultiJob phase
 
@@ -1853,6 +1856,13 @@ def multijob(registry, xml_parent, data):
         raise JenkinsJobsException('Multijob condition must be one of: %s.'
                                    % ', '.join(conditions_available))
     XML.SubElement(builder, 'continuationCondition').text = condition
+
+    execution_type = data.get('execution-type', 'PARALLEL')
+    execution_type_available = ('PARALLEL', 'SEQUENTIALLY')
+    if execution_type not in execution_type_available:
+        raise JenkinsJobsException('Multijob executionType must be one of: %s.'
+                                   % ', '.join(execution_type_available))
+    XML.SubElement(builder, 'executionType').text = execution_type
 
     phaseJobs = XML.SubElement(builder, 'phaseJobs')
 
