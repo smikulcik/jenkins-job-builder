@@ -2,6 +2,7 @@ builders:
   - multijob:
       name: PhaseOne
       condition: SUCCESSFUL
+      execution-type: SEQUENTIALLY
       projects:
         - name: PhaseOneJobA
           current-parameters: true

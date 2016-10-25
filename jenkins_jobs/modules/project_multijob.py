@@ -32,6 +32,7 @@ Example::
       - multijob:
           name: PhaseOne
           condition: SUCCESSFUL
+          execution-type: SEQUENTIALLY
           projects:
             - name: PhaseOneJobA
               current-parameters: true
@@ -42,6 +43,7 @@ Example::
       - multijob:
           name: PhaseTwo
           condition: UNSTABLE
+          execution-type: PARALLEL
           projects:
             - name: PhaseTwoJobA
               current-parameters: true
