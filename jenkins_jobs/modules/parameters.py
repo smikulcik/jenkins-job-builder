@@ -762,7 +762,6 @@ def maven_metadata_param(registry, xml_parent, data):
     XML.SubElement(pdef, 'password').text = data.get('repository-password', '')
 
 
-<<<<<<< HEAD
 def hidden_param(parser, xml_parent, data):
     """yaml: hidden
     Allows you to use parameters hidden from the build with parameter page.
