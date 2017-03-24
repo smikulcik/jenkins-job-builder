@@ -21,15 +21,16 @@ import io
 import itertools
 import logging
 import os
-import pkg_resources
 
 from jenkins_jobs.constants import MAGIC_MANAGE_STRING
 from jenkins_jobs.errors import JenkinsJobsException
 from jenkins_jobs.formatter import deep_format
 import jenkins_jobs.local_yaml as local_yaml
-from jenkins_jobs.registry import ModuleRegistry
 from jenkins_jobs import utils
-from jenkins_jobs.xml_config import XmlJob
+
+__all__ = [
+    "YamlParser"
+]
 
 logger = logging.getLogger(__name__)
 
@@ -71,17 +72,14 @@ def combination_matches(combination, match_combinations):
 
 
 class YamlParser(object):
-    def __init__(self, jjb_config=None, plugins_info=None):
+    def __init__(self, jjb_config=None):
         self.data = {}
         self.jobs = []
-        self.xml_jobs = []
+        self.views = []
 
         self.jjb_config = jjb_config
         self.keep_desc = jjb_config.yamlparser['keep_descriptions']
         self.path = jjb_config.yamlparser['include_path']
-
-        self.registry = ModuleRegistry(jjb_config,
-                                       plugins_info)
 
     def load_files(self, fn):
 
@@ -174,7 +172,7 @@ class YamlParser(object):
             logger.error(message)
             raise JenkinsJobsException(message)
         else:
-            logger.warn(message)
+            logger.warning(message)
 
     def _getJob(self, name):
         job = self.data.get('job', {}).get(name, None)
@@ -220,11 +218,11 @@ class YamlParser(object):
             job["description"] = description + \
                 self._get_managed_string().lstrip()
 
-    def expandYaml(self, jobs_glob=None):
+    def expandYaml(self, registry, jobs_glob=None):
         changed = True
         while changed:
             changed = False
-            for module in self.registry.modules:
+            for module in registry.modules:
                 if hasattr(module, 'handle_data'):
                     if module.handle_data(self.data):
                         changed = True
@@ -237,6 +235,12 @@ class YamlParser(object):
             job = self._applyDefaults(job)
             self._formatDescription(job)
             self.jobs.append(job)
+
+        for view in self.data.get('view', {}).values():
+            logger.debug("Expanding view '{0}'".format(view['name']))
+            self._formatDescription(view)
+            self.views.append(view)
+
         for project in self.data.get('project', {}).values():
             logger.debug("Expanding project '{0}'".format(project['name']))
             # use a set to check for duplicate job references in projects
@@ -313,6 +317,7 @@ class YamlParser(object):
                                   "specified".format(job['name']))
                 self.jobs.remove(job)
             seen.add(job['name'])
+        return self.jobs, self.views
 
     def _expandYamlForTemplateJob(self, project, template, jobs_glob=None):
         dimensions = []
@@ -371,24 +376,3 @@ class YamlParser(object):
         # The \n\n is not hard coded, because they get stripped if the
         # project does not otherwise have a description.
         return "\n\n" + MAGIC_MANAGE_STRING
-
-    def generateXML(self):
-        for job in self.jobs:
-            self.xml_jobs.append(self.getXMLForJob(job))
-
-    def getXMLForJob(self, data):
-        kind = data.get('project-type', 'freestyle')
-
-        for ep in pkg_resources.iter_entry_points(
-                group='jenkins_jobs.projects', name=kind):
-            Mod = ep.load()
-            mod = Mod(self.registry)
-            xml = mod.root_xml(data)
-            self.gen_xml(xml, data)
-            job = XmlJob(xml, data['name'])
-            return job
-
-    def gen_xml(self, xml, data):
-        for module in self.registry.modules:
-            if hasattr(module, 'gen_xml'):
-                module.gen_xml(self, xml, data)
